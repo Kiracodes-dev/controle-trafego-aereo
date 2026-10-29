@@ -13,8 +13,6 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-O navegador abre em `http://localhost:8501`.
-
 Testes automatizados:
 
 ```bash
