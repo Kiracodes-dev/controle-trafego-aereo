@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 
 from trafego.banco_dados import BancoDeDados
@@ -83,6 +85,40 @@ class TestSimulador(unittest.TestCase):
     def test_cenarios_carregam(self):
         for nome in ControleTrafegoAereo.cenarios_disponiveis():
             self.assertGreater(len(self.controle.carregar_cenario(nome, semente=1)), 0)
+
+    def test_reiniciar_simulacao(self):
+        self.controle.carregar_cenario("Múltiplas emergências", semente=1)
+        self.controle.reiniciar_simulacao()
+        self.assertEqual(self.controle.aeronaves, [])
+        self.assertEqual(self.controle.relogio.agora(), 0)
+        self.assertEqual(self.eventos(), ["REINICIO"])
+
+
+class TestPersistencia(unittest.TestCase):
+    """Simula fechar e abrir o programa de novo usando o mesmo arquivo de banco."""
+
+    def setUp(self):
+        self.pasta = tempfile.TemporaryDirectory()
+        self.caminho = os.path.join(self.pasta.name, "teste.db")
+
+    def tearDown(self):
+        self.pasta.cleanup()
+
+    def test_aeronaves_e_relogio_sao_restaurados(self):
+        controle = ControleTrafegoAereo(BancoDeDados(self.caminho))
+        controle.cadastrar_aeronave("POUSA", "GRU", "FLN", "Emergência médica a bordo")
+        controle.cadastrar_aeronave("ESPERA", "GIG", "FLN", "Voo comercial regular")
+        controle.processar_pouso()
+        controle.avancar_tempo(8)
+        controle._banco._conexao.close()
+
+        reaberto = ControleTrafegoAereo(BancoDeDados(self.caminho))
+        status = {a.codigo: a.status for a in reaberto.aeronaves}
+        self.assertEqual(status, {"POUSA": "POUSOU", "ESPERA": "AGUARDANDO"})
+        self.assertEqual(reaberto.relogio.agora(), 10)
+        espera = next(a for a in reaberto.aeronaves if a.codigo == "ESPERA")
+        self.assertEqual(espera.prioridade_atual(), 2)
+        reaberto._banco._conexao.close()
 
 
 if __name__ == "__main__":

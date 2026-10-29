@@ -19,17 +19,22 @@ Testes automatizados:
 python -m unittest -v
 ```
 
+## Funcionalidades
 
 - Cadastro de aeronaves (código, origem, destino e situação).
 - Fila de pouso ordenada por prioridade, com desempate por urgência original e ordem de chegada.
 - Botão **Autorizar próximo pouso** (cada pouso ocupa a pista por 2 minutos simulados).
 - **Relógio simulado**: avance o tempo para ver o aging e o SLA funcionando sem esperar minutos reais.
-- **Cenários prontos**: horário de pico, tempestade e múltiplas emergências.
+- **Cenários prontos**: horário de pico, tempestade, múltiplas emergências, neblina com combustível
+  crítico, pista sobrecarregada e fluxo aleatório.
 - Métricas: aeronaves aguardando, espera média e máxima, tempo médio de atendimento, % de SLA cumprido
   (geral e por prioridade) e alerta de aeronaves fora do SLA.
+- **Gráficos**: cumprimento do SLA por prioridade e tempo de espera de cada pouso comparado ao SLA.
+- **Persistência**: aeronaves, relógio e logs ficam salvos no SQLite; ao abrir o programa de novo,
+  a simulação continua de onde parou. O botão **Reiniciar simulação** apaga tudo.
 - Logs de cadastro, alteração de prioridade (aging), pousos, remoções e cenários, com filtro e exportação CSV.
 
-
+## Regras de negócio
 
 | Situação | Prioridade | SLA (espera máx.) |
 |---|---|---|
@@ -44,6 +49,7 @@ python -m unittest -v
   O nível 1 é exclusivo de emergências (regra de segurança).
 - **Desempate:** mesma prioridade atual → vence o voo com urgência original maior; depois, quem chegou primeiro.
 
+## Estrutura (segue o diagrama UML)
 
 ```
 app.py                      InterfaceStreamlit

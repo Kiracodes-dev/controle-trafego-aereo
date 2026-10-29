@@ -1,5 +1,9 @@
+"""Relógio simulado: permite avançar o tempo sem esperar minutos reais."""
+
+
 class RelogioSimulado:
     def __init__(self, inicio=0.0):
+        # O tempo é contado em minutos desde o início da simulação
         self._minuto = float(inicio)
 
     def agora(self):

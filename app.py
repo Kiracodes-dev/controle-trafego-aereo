@@ -1,3 +1,5 @@
+"""InterfaceStreamlit: tela do simulador. Execute com:  streamlit run app.py"""
+
 import pandas as pd
 import streamlit as st
 
@@ -11,6 +13,7 @@ NOMES_PRIORIDADE = {1: "1 - Emergência", 2: "2 - Alta", 3: "3 - Média", 4: "4 
 class InterfaceStreamlit:
     def inicializar_sistema(self):
         st.set_page_config(page_title="Controle de Tráfego Aéreo", page_icon="✈️", layout="wide")
+        # session_state mantém o controlador vivo entre as atualizações da página
         if "controle" not in st.session_state:
             banco = BancoDeDados("trafego_aereo.db")
             st.session_state.banco = banco
@@ -57,6 +60,11 @@ class InterfaceStreamlit:
             if st.button("Remover todas aguardando", use_container_width=True):
                 n = self.controle.remover_aeronaves_aguardando()
                 st.warning(f"{n} aeronave(s) removida(s).")
+            if st.button("Reiniciar simulação", use_container_width=True,
+                         help="Apaga aeronaves, relógio e logs salvos no banco"):
+                self.controle.reiniciar_simulacao()
+                st.session_state.ultimo_pouso = None
+                st.rerun()
 
             with st.expander("Regras de prioridade e SLA"):
                 st.markdown(
@@ -68,13 +76,15 @@ class InterfaceStreamlit:
     def exibir_metricas(self):
         m = self.controle.metricas()
         st.caption(f"🕒 Relógio da simulação: **{self.controle.relogio.agora():.1f} min**")
-        c = st.columns(6)
-        c[0].metric("Aguardando", m["aguardando"])
-        c[1].metric("Pousos", m["pousadas"])
-        c[2].metric("Espera média", f"{m['espera_media']:.1f} min")
-        c[3].metric("Espera máxima", f"{m['espera_maxima']:.1f} min")
-        c[4].metric("Atendimento médio", f"{m['atendimento_medio']:.1f} min")
-        c[5].metric("SLA cumprido", f"{m['sla_cumprido_pct']:.0f}%")
+        # Duas linhas de três cartões para os números não ficarem cortados em telas menores
+        linha1 = st.columns(3)
+        linha1[0].metric("Aguardando", m["aguardando"])
+        linha1[1].metric("Pousos", m["pousadas"])
+        linha1[2].metric("SLA cumprido", f"{m['sla_cumprido_pct']:.0f}%")
+        linha2 = st.columns(3)
+        linha2[0].metric("Espera média", f"{m['espera_media']:.1f} min")
+        linha2[1].metric("Espera máxima", f"{m['espera_maxima']:.1f} min")
+        linha2[2].metric("Atendimento médio", f"{m['atendimento_medio']:.1f} min")
         if m["aguardando_fora_sla"]:
             st.error(f"⚠️ {m['aguardando_fora_sla']} aeronave(s) aguardando já passaram do SLA.")
 
@@ -124,8 +134,26 @@ class InterfaceStreamlit:
             "Dentro do SLA": "sim" if a.tempo_espera() <= SLA_MINUTOS[a.prioridade_base] else "não",
         } for a in pousadas])
         st.dataframe(df, hide_index=True, use_container_width=True)
+
+        sla = pd.DataFrame(self.controle.sla_por_prioridade())
+        col_graf1, col_graf2 = st.columns(2)
+        with col_graf1:
+            st.markdown("**Cumprimento do SLA por prioridade (%)**")
+            # Prioridades sem nenhum pouso ficam de fora do gráfico
+            grafico_sla = sla.dropna(subset=["cumprimento_pct"])
+            grafico_sla = grafico_sla.assign(prioridade=grafico_sla["prioridade"].map(NOMES_PRIORIDADE))
+            st.bar_chart(grafico_sla, x="prioridade", y="cumprimento_pct", y_label="% dentro do SLA")
+        with col_graf2:
+            st.markdown("**Tempo de espera de cada pouso x SLA (min)**")
+            espera = pd.DataFrame({
+                "Voo": [a.codigo for a in pousadas],
+                "Esperou": [round(a.tempo_espera(), 1) for a in pousadas],
+                "SLA": [SLA_MINUTOS[a.prioridade_base] for a in pousadas],
+            })
+            st.bar_chart(espera, x="Voo", y=["Esperou", "SLA"], stack=False, y_label="minutos")
+
         st.markdown("**Cumprimento do SLA por prioridade**")
-        st.dataframe(pd.DataFrame(self.controle.sla_por_prioridade()), hide_index=True)
+        st.dataframe(sla, hide_index=True)
 
     def exibir_logs(self):
         st.subheader("🗂️ Logs de auditoria (SQLite)")

@@ -1,3 +1,5 @@
+"""Classe FilaDePrioridade: heap (heapq) ordenada por (prioridade, chegada)."""
+
 import heapq
 
 
@@ -6,6 +8,9 @@ class FilaDePrioridade:
         self._heap = []
 
     def inserir(self, aeronave):
+        # Ordem da tupla: prioridade atual, depois urgência original (um voo promovido
+        # pelo aging não passa na frente de um com combustível baixo), depois ordem de chegada.
+        # O id evita que o Python tente comparar dois objetos Aeronave.
         heapq.heappush(
             self._heap,
             (aeronave.prioridade_atual(), aeronave.prioridade_base,
